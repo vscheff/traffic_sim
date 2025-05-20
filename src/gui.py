@@ -7,6 +7,7 @@ from pygame.locals import *
 
 # Local Dependencies
 from src.color_map import COLORS
+from src.Cell import Cell
 from src.Road import Road
 from src.utils import Coordinate
 from src.Vehicle import Vehicle
@@ -42,7 +43,11 @@ class GraphicsEngine:
         self.sprites["Vehicles"].add(Vehicle(Coordinate(self.safe_rect.left, self.safe_rect.top)))
 
         self.sprites["Roads"] = pg.sprite.Group()
-        self.sprites["Roads"].add(Road(Coordinate(self.safe_rect.left, self.safe_rect.top)))
+        self.sprites["Cells"] = pg.sprite.Group()
+
+        for i in range(self.safe_rect.left, self.safe_rect.right, 64):
+            for j in range(self.safe_rect.top, self.safe_rect.bottom, 64):
+                self.sprites["Cells"].add(Cell(Coordinate(i, j)))
 
     def prepare_display(self):
         width, height = self.display.get_size()
@@ -79,9 +84,13 @@ class GraphicsEngine:
                 self.prepare_display()
 
             elif event.type == MOUSEBUTTONUP:
-                self.sprites["Roads"].add(Road(Coordinate(*event.pos)))
+                for sprite in self.sprites["Cells"]:
+                    if sprite.rect.collidepoint(event.pos):
+                        self.sprites["Roads"].add(Road(Coordinate(*sprite.rect.topleft)))
+                        break
 
     def update_sprites(self):
+        # self.sprites["Cells"].draw(self.display)
         self.sprites["Roads"].update()
         self.sprites["Roads"].draw(self.display)
 
