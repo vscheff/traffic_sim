@@ -7,6 +7,7 @@ from pygame.locals import *
 
 # Local Dependencies
 from src.color_map import COLORS
+from src.Road import Road
 from src.utils import Coordinate
 from src.Vehicle import Vehicle
 
@@ -39,6 +40,9 @@ class GraphicsEngine:
     def set_initial_condition(self):
         self.sprites["Vehicles"] = pg.sprite.Group()
         self.sprites["Vehicles"].add(Vehicle(Coordinate(self.safe_rect.left, self.safe_rect.top)))
+
+        self.sprites["Roads"] = pg.sprite.Group()
+        self.sprites["Roads"].add(Road(Coordinate(self.safe_rect.left, self.safe_rect.top)))
 
     def prepare_display(self):
         width, height = self.display.get_size()
@@ -74,15 +78,19 @@ class GraphicsEngine:
             if event.type == VIDEORESIZE:
                 self.prepare_display()
 
+            elif event.type == MOUSEBUTTONUP:
+                self.sprites["Roads"].add(Road(Coordinate(*event.pos)))
+
     def update_sprites(self):
-        for sprite_list in self.sprites.values():
-            sprite_list.update()
+        self.sprites["Roads"].update()
+        self.sprites["Roads"].draw(self.display)
 
-            for sprite in sprite_list.sprites():
-                if not self.safe_rect.colliderect(sprite.rect):
-                    sprite.kill()
+        self.sprites["Vehicles"].update()
+        for sprite in self.sprites["Vehicles"].sprites():
+            if not self.safe_rect.colliderect(sprite.rect):
+                sprite.kill()
 
-            sprite_list.draw(self.display)
+        self.sprites["Vehicles"].draw(self.display)
     
     def clear_screen(self):
         pg.draw.rect(self.display, SIM_COLOR, self.safe_rect)
@@ -93,6 +101,7 @@ class GraphicsEngine:
         text_rect.topleft = (top, left)
 
         return text_surf, text_rect
+
 
 def terminate():
     pg.quit()
