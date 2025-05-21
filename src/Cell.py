@@ -6,11 +6,21 @@ from src.utils import Coordinate
 
 
 class Cell(pg.sprite.Sprite):
-    def __init__(self, start_pos, *args, **kwargs):
+    def __init__(self, start_pos, width, height, sprite=None, *args, **kwargs):
         if type(start_pos) != Coordinate:
             raise ValueError
 
         super().__init__(*args, **kwargs)
 
-        self.image = pg.image.load("textures/Cell.png")
-        self.rect = pg.Rect(start_pos.x, start_pos.y, *self.image.get_size())
+        self.sprite = sprite
+        self.rect = pg.Rect(start_pos.x, start_pos.y, width, height)
+
+    def set_sprite(self, sprite, kill=False):
+        if kill and self.sprite is not None:
+            self.sprite.kill()
+
+        self.sprite = sprite
+
+    def draw(self, display):
+        if self.sprite is not None:
+            display.blit(self.sprite.image, self.sprite.rect)

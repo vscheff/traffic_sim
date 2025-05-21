@@ -19,6 +19,7 @@ WINDOW_HEIGHT = 900                 # Initial height of the game window [pixels]
 SAFE_ZONE = 0.1                     # Ratio of screen size to inset the simulation area [percent]
 SIM_FONT = "freesansbold.ttf"       # Font style for text used in simulator
 FPS_DISPLAY_RATIO = 2/3             # Ratio of FPS font size to safe area [percent]
+CELL_SIZE = 64                      # Size of cells used in simulator [pixels]
 
 # Color Constants
 BG_COLOR = COLORS["dark_gray"]
@@ -33,6 +34,9 @@ class GraphicsEngine:
         self.fps_clock = pg.time.Clock()
         self.basic_font = None
         self.sprites = {}
+        self.cells = []
+        self.cell_matrix = []
+        self.active_range = [0, 0]
         self.safe_rect = None
 
         self.prepare_display()
@@ -45,9 +49,25 @@ class GraphicsEngine:
         self.sprites["Roads"] = pg.sprite.Group()
         self.sprites["Cells"] = pg.sprite.Group()
 
-        for i in range(self.safe_rect.left, self.safe_rect.right, 64):
-            for j in range(self.safe_rect.top, self.safe_rect.bottom, 64):
-                self.sprites["Cells"].add(Cell(Coordinate(i, j)))
+        self.cell_matrix = [[None for _ in range(self.safe_rect.height // CELL_SIZE)] for _ in range(self.safe_rect.width // CELL_SIZE)]
+
+        self.set_active_range()
+
+        i = 0
+        for x in range(self.safe_rect.left, self.safe_rect.right, CELL_SIZE):
+            j = 0
+            for y in range(self.safe_rect.top, self.safe_rect.bottom, CELL_SIZE):
+                self.cell_matrix[i][j] = Cell(Coordinate(x, y), CELL_SIZE, CELL_SIZE)
+                self.cells.append(self.cell_matrix[i][j])
+                j += 1
+            i += 1
+
+    def set_active_range(self):
+        if len(self.cell_matrix) < 1:
+            return
+
+        self.active_range[0] = min(len(self.cell_matrix), self.safe_rect.width // CELL_SIZE)
+        self.active_range[1] = min(len(self.cell_matrix[0]), self.safe_rect.height // CELL_SIZE)
 
     def prepare_display(self):
         width, height = self.display.get_size()
@@ -57,15 +77,24 @@ class GraphicsEngine:
                               width * (1 - 2 * SAFE_ZONE),
                               height * (1 - 2 * SAFE_ZONE)
                              )
+        self.safe_rect.width -= self.safe_rect.width % CELL_SIZE
+        self.safe_rect.height -= self.safe_rect.height % CELL_SIZE
+        self.set_active_range()
         self.basic_font = pg.font.Font(SIM_FONT, int(min(width, height) * SAFE_ZONE * FPS_DISPLAY_RATIO))
 
     def draw_display(self):
         self.display.fill(BG_COLOR)
         self.clear_screen()
         self.draw_fps()
+        self.draw_cells()
 
     def draw_fps(self):
         self.display.blit(*self.make_text(str(round(self.fps_clock.get_fps(), 1)), 0, 0, FPS_COLOR))
+
+    def draw_cells(self):
+        for i in range(self.active_range[0]):
+            for j in range(self.active_range[1]):
+                self.cell_matrix[i][j].draw(self.display)
 
     def launch_gui(self):
         while True:
@@ -84,23 +113,21 @@ class GraphicsEngine:
                 self.prepare_display()
 
             elif event.type == MOUSEBUTTONUP:
-                for sprite in self.sprites["Cells"]:
-                    if sprite.rect.collidepoint(event.pos):
-                        self.sprites["Roads"].add(Road(Coordinate(*sprite.rect.topleft)))
+                for cell in self.cells:
+                    if cell.rect.collidepoint(event.pos):
+                        cell.set_sprite(Road(Coordinate(*cell.rect.topleft)), kill=True)
+                        self.sprites["Roads"].add(cell.sprite)
+
                         break
 
     def update_sprites(self):
-        # self.sprites["Cells"].draw(self.display)
-        self.sprites["Roads"].update()
-        self.sprites["Roads"].draw(self.display)
-
         self.sprites["Vehicles"].update()
         for sprite in self.sprites["Vehicles"].sprites():
             if not self.safe_rect.colliderect(sprite.rect):
                 sprite.kill()
 
         self.sprites["Vehicles"].draw(self.display)
-    
+
     def clear_screen(self):
         pg.draw.rect(self.display, SIM_COLOR, self.safe_rect)
 
