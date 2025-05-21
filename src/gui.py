@@ -46,17 +46,14 @@ class GraphicsEngine:
         self.sprites["Vehicles"] = pg.sprite.Group()
         self.sprites["Vehicles"].add(Vehicle(Coordinate(self.safe_rect.left, self.safe_rect.top)))
 
-        self.sprites["Roads"] = pg.sprite.Group()
-        self.sprites["Cells"] = pg.sprite.Group()
-
-        self.cell_matrix = [[None for _ in range(self.safe_rect.height // CELL_SIZE)] for _ in range(self.safe_rect.width // CELL_SIZE)]
+        self.cell_matrix = [[None for _ in range(self.safe_rect.width // CELL_SIZE)] for _ in range(self.safe_rect.height // CELL_SIZE)]
 
         self.set_active_range()
 
         i = 0
-        for x in range(self.safe_rect.left, self.safe_rect.right, CELL_SIZE):
+        for y in range(self.safe_rect.top, self.safe_rect.bottom, CELL_SIZE):
             j = 0
-            for y in range(self.safe_rect.top, self.safe_rect.bottom, CELL_SIZE):
+            for x in range(self.safe_rect.left, self.safe_rect.right, CELL_SIZE):
                 self.cell_matrix[i][j] = Cell(Coordinate(x, y), CELL_SIZE, CELL_SIZE)
                 self.cells.append(self.cell_matrix[i][j])
                 j += 1
@@ -66,8 +63,8 @@ class GraphicsEngine:
         if len(self.cell_matrix) < 1:
             return
 
-        self.active_range[0] = min(len(self.cell_matrix), self.safe_rect.width // CELL_SIZE)
-        self.active_range[1] = min(len(self.cell_matrix[0]), self.safe_rect.height // CELL_SIZE)
+        self.active_range[0] = min(len(self.cell_matrix), self.safe_rect.height // CELL_SIZE)
+        self.active_range[1] = min(len(self.cell_matrix[0]), self.safe_rect.width // CELL_SIZE)
 
     def prepare_display(self):
         width, height = self.display.get_size()
@@ -80,7 +77,20 @@ class GraphicsEngine:
         self.safe_rect.width -= self.safe_rect.width % CELL_SIZE
         self.safe_rect.height -= self.safe_rect.height % CELL_SIZE
         self.set_active_range()
+        self.adjust_cell_positions()
         self.basic_font = pg.font.Font(SIM_FONT, int(min(width, height) * SAFE_ZONE * FPS_DISPLAY_RATIO))
+
+    def adjust_cell_positions(self):
+        if len(self.cell_matrix) < 1:
+            return
+
+        top = self.safe_rect.top
+        for i in range(self.active_range[0]):
+            left = self.safe_rect.left
+            for j in range(self.active_range[1]):
+                self.cell_matrix[i][j].adjust_position((left, top))     # This isn't right, but is close to my expected behavior. Need to fix.
+                left += CELL_SIZE
+            top += CELL_SIZE
 
     def draw_display(self):
         self.display.fill(BG_COLOR)
@@ -116,7 +126,6 @@ class GraphicsEngine:
                 for cell in self.cells:
                     if cell.rect.collidepoint(event.pos):
                         cell.set_sprite(Road(Coordinate(*cell.rect.topleft)), kill=True)
-                        self.sprites["Roads"].add(cell.sprite)
 
                         break
 
