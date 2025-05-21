@@ -36,7 +36,7 @@ class GraphicsEngine:
         self.sprites = {}
         self.cells = []
         self.cell_matrix = []
-        self.active_range = [0, 0]
+        self.active_range = Coordinate(0, 0)
         self.safe_rect = None
 
         self.prepare_display()
@@ -63,8 +63,8 @@ class GraphicsEngine:
         if len(self.cell_matrix) < 1:
             return
 
-        self.active_range[0] = min(len(self.cell_matrix), self.safe_rect.height // CELL_SIZE)
-        self.active_range[1] = min(len(self.cell_matrix[0]), self.safe_rect.width // CELL_SIZE)
+        self.active_range.y = min(len(self.cell_matrix), self.safe_rect.height // CELL_SIZE)
+        self.active_range.x = min(len(self.cell_matrix[0]), self.safe_rect.width // CELL_SIZE)
 
     def prepare_display(self):
         width, height = self.display.get_size()
@@ -85,10 +85,10 @@ class GraphicsEngine:
             return
 
         top = self.safe_rect.top
-        for i in range(self.active_range[0]):
+        for i in range(self.active_range.y):
             left = self.safe_rect.left
-            for j in range(self.active_range[1]):
-                self.cell_matrix[i][j].adjust_position((left, top))     # This isn't right, but is close to my expected behavior. Need to fix.
+            for j in range(self.active_range.x):
+                self.cell_matrix[i][j].adjust_position(top, left)
                 left += CELL_SIZE
             top += CELL_SIZE
 
@@ -102,8 +102,8 @@ class GraphicsEngine:
         self.display.blit(*self.make_text(str(round(self.fps_clock.get_fps(), 1)), 0, 0, FPS_COLOR))
 
     def draw_cells(self):
-        for i in range(self.active_range[0]):
-            for j in range(self.active_range[1]):
+        for i in range(self.active_range.y):
+            for j in range(self.active_range.x):
                 self.cell_matrix[i][j].draw(self.display)
 
     def launch_gui(self):

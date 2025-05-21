@@ -21,9 +21,10 @@ class Cell(pg.sprite.Sprite):
 
         self.sprite = sprite
 
-    def adjust_position(self, new_topleft):
-        self.rect.topleft = new_topleft
+    def adjust_position(self, new_top, new_left):
+        self.rect.top = new_top
+        self.rect.left = new_left
 
     def draw(self, display):
         if self.sprite is not None:
-            display.blit(self.sprite.image, self.sprite.rect)
+            display.blit(self.sprite.image, self.rect)
