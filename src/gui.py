@@ -139,17 +139,23 @@ class GraphicsEngine:
                 self.prepare_display()
 
             elif event.type == MOUSEBUTTONUP:
-                found_collision = False
-                for i in range(self.active_range.y):
-                    for j in range(self.active_range.x):
-                        if self.cell_matrix[i][j].rect.collidepoint(event.pos):
-                            self.cell_matrix[i][j].set_sprite(Road(Coordinate(*self.cell_matrix[i][j].rect.topleft)), kill=True)
-                            found_collision = True
-                            
-                            break
+                if not self.safe_rect.collidepoint(event.pos):
+                    continue
 
-                    if found_collision:
-                        break
+                clicked_cell = self.cell_matrix[(event.pos[1] - self.safe_rect.top) // CELL_SIZE][(event.pos[0] - self.safe_rect.left) // CELL_SIZE]
+                clicked_cell.set_sprite(Road(Coordinate(*clicked_cell.rect.topleft)), kill=True)
+
+                #found_collision = False
+                #for i in range(self.active_range.y):
+                #    for j in range(self.active_range.x):
+                #        if self.cell_matrix[i][j].rect.collidepoint(event.pos):
+                #            self.cell_matrix[i][j].set_sprite(Road(Coordinate(*self.cell_matrix[i][j].rect.topleft)), kill=True)
+                #            found_collision = True
+                            
+                #            break
+
+                #    if found_collision:
+                #        break
 
     def update_sprites(self):
         self.sprites["Vehicles"].update()
