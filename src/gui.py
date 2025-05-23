@@ -34,8 +34,7 @@ class GraphicsEngine:
         self.fps_clock = pg.time.Clock()
         self.basic_font = None
         self.sprites = {}
-        self.cells = []
-        self.cell_matrix = []
+        self.cell_matrix = [[]]
         self.active_range = Coordinate(0, 0)
         self.safe_rect = None
 
@@ -46,25 +45,42 @@ class GraphicsEngine:
         self.sprites["Vehicles"] = pg.sprite.Group()
         self.sprites["Vehicles"].add(Vehicle(Coordinate(self.safe_rect.left, self.safe_rect.top)))
 
-        self.cell_matrix = [[None for _ in range(self.safe_rect.width // CELL_SIZE)] for _ in range(self.safe_rect.height // CELL_SIZE)]
-
-        self.set_active_range()
-
-        i = 0
-        for y in range(self.safe_rect.top, self.safe_rect.bottom, CELL_SIZE):
-            j = 0
-            for x in range(self.safe_rect.left, self.safe_rect.right, CELL_SIZE):
-                self.cell_matrix[i][j] = Cell(Coordinate(x, y), CELL_SIZE, CELL_SIZE)
-                self.cells.append(self.cell_matrix[i][j])
-                j += 1
-            i += 1
-
     def set_active_range(self):
-        if len(self.cell_matrix) < 1:
+        self.active_range.y = self.safe_rect.height // CELL_SIZE
+        self.active_range.x = self.safe_rect.width // CELL_SIZE
+        
+        self.grow_cell_matrix()
+
+    def grow_cell_matrix(self):
+        grown = False
+
+        if self.active_range.y > len(self.cell_matrix):
+            x_range = self.active_range.x - len(self.cell_matrix[0])
+            y_range = self.active_range.y - len(self.cell_matrix)
+            self.cell_matrix.extend([None for _ in range(x_range)] for _ in range(y_range))
+            grown = True
+
+        if self.active_range.x > len(self.cell_matrix[0]):
+            for row in self.cell_matrix:
+                row.extend(None for _ in range(self.active_range.x - len(row)))
+            
+            grown = True
+
+        if not grown:
             return
 
-        self.active_range.y = min(len(self.cell_matrix), self.safe_rect.height // CELL_SIZE)
-        self.active_range.x = min(len(self.cell_matrix[0]), self.safe_rect.width // CELL_SIZE)
+        top = self.safe_rect.top
+
+        for i in range(self.active_range.y):
+            left = self.safe_rect.left
+            
+            for j in range(self.active_range.x):
+                if self.cell_matrix[i][j] is None:
+                    self.cell_matrix[i][j] = Cell(Coordinate(left, top), CELL_SIZE, CELL_SIZE)
+
+                left += CELL_SIZE
+
+            top += CELL_SIZE
 
     def prepare_display(self):
         width, height = self.display.get_size()
@@ -123,10 +139,16 @@ class GraphicsEngine:
                 self.prepare_display()
 
             elif event.type == MOUSEBUTTONUP:
-                for cell in self.cells:
-                    if cell.rect.collidepoint(event.pos):
-                        cell.set_sprite(Road(Coordinate(*cell.rect.topleft)), kill=True)
+                found_collision = False
+                for i in range(self.active_range.y):
+                    for j in range(self.active_range.x):
+                        if self.cell_matrix[i][j].rect.collidepoint(event.pos):
+                            self.cell_matrix[i][j].set_sprite(Road(Coordinate(*self.cell_matrix[i][j].rect.topleft)), kill=True)
+                            found_collision = True
+                            
+                            break
 
+                    if found_collision:
                         break
 
     def update_sprites(self):
