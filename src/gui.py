@@ -44,6 +44,9 @@ class GraphicsEngine:
         self.cell_matrix = [[]]
         self.active_range = Coordinate(0, 0)
         self.safe_rect = None
+        self.hovering = False
+
+        pg.display.set_caption("Traffic Simulator 2025")
 
         self.prepare_display()
         self.set_initial_condition()
@@ -145,13 +148,23 @@ class GraphicsEngine:
             for j in range(self.active_range.x):
                 self.cell_matrix[i][j].draw(self.display)
 
+    def draw_mouse(self):
+        if self.active_tool is None or self.hovering:
+            return
+
+        pg.mouse.set_visible(False)
+        rect = self.active_tool["rect"].copy()
+        rect.center = pg.mouse.get_pos()
+        self.display.blit(self.active_tool["image"], rect)
+    
     def launch_gui(self):
         while True:
-            self.handle_events()
             self.draw_display()
             self.update_sprites()
-            pg.display.flip()
             self.fps_clock.tick(FPS)
+            self.handle_events()
+            self.draw_mouse()
+            pg.display.flip()
 
     def handle_events(self):
         for event in pg.event.get():
@@ -161,6 +174,15 @@ class GraphicsEngine:
             if event.type == VIDEORESIZE:
                 self.prepare_display()
 
+            elif event.type == MOUSEMOTION:
+                self.hovering = False
+                cursor = SYSTEM_CURSOR_HAND if any(i["rect"].collidepoint(event.pos) for i in self.tools) else SYSTEM_CURSOR_ARROW
+
+                if self.active_tool is None or cursor == SYSTEM_CURSOR_HAND:
+                    pg.mouse.set_visible(True)
+                    self.hovering = True
+                    pg.mouse.set_cursor(cursor)
+
             elif event.type == MOUSEBUTTONUP:
                 if self.safe_rect.collidepoint(event.pos):
                     if self.active_tool is None:
@@ -168,14 +190,14 @@ class GraphicsEngine:
 
                     clicked_cell = self.cell_matrix[(event.pos[1] - self.safe_rect.top) // CELL_SIZE][(event.pos[0] - self.safe_rect.left) // CELL_SIZE]
 
-                    if self.active_tool is ACT.ERASE:
+                    if self.active_tool["action"] is ACT.ERASE:
                         clicked_cell.set_sprite(None, kill=True)
                     else:
-                        clicked_cell.set_sprite(self.active_tool(Coordinate(*clicked_cell.rect.topleft)), kill=True)
+                        clicked_cell.set_sprite(self.active_tool["action"](Coordinate(*clicked_cell.rect.topleft)), kill=True)
                 else:
                     for tool in self.tools:
                         if tool["rect"].collidepoint(event.pos):
-                            self.active_tool = tool["action"]
+                            self.active_tool = tool
 
     def update_sprites(self):
         self.sprites["Vehicles"].update()
