@@ -6,6 +6,7 @@ import pygame as pg
 from pygame.locals import *
 
 # Local Dependencies
+import src.actions as ACT
 from src.color_map import COLORS
 from src.Cell import Cell
 from src.Road import Road
@@ -19,12 +20,16 @@ WINDOW_HEIGHT = 900                 # Initial height of the game window [pixels]
 SAFE_ZONE = 0.1                     # Ratio of screen size to inset the simulation area [percent]
 SIM_FONT = "freesansbold.ttf"       # Font style for text used in simulator
 FPS_DISPLAY_RATIO = 2/3             # Ratio of FPS font size to safe area [percent]
+TOOLBAR_DISPLAY_RATIO = 0.25        # Ratio of toolbar font size to safe area [percent]
+TOOLBAR_OFFSET = 10                 # Distance between toolbar items [pixels]
+TOOLBAR_MARGIN = 10                 # Distance from the edge of the screen to draw toolbar items [pixels]
 CELL_SIZE = 64                      # Size of cells used in simulator [pixels]
 
 # Color Constants
 BG_COLOR = COLORS["dark_gray"]
 SIM_COLOR = COLORS["green"]
 FPS_COLOR = COLORS["white"]
+TOOLBAR_COLOR = COLORS["light_gray"]
 
 class GraphicsEngine:
     def __init__(self):
@@ -32,7 +37,9 @@ class GraphicsEngine:
 
         self.display = pg.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), RESIZABLE)
         self.fps_clock = pg.time.Clock()
-        self.basic_font = None
+        self.fonts = {}
+        self.tools = []
+        self.active_tool = None
         self.sprites = {}
         self.cell_matrix = [[]]
         self.active_range = Coordinate(0, 0)
@@ -44,6 +51,9 @@ class GraphicsEngine:
     def set_initial_condition(self):
         self.sprites["Vehicles"] = pg.sprite.Group()
         self.sprites["Vehicles"].add(Vehicle(Coordinate(self.safe_rect.left, self.safe_rect.top)))
+
+        self.tools.append({"image": pg.image.load("textures/Eraser.png"), "rect": None, "action": ACT.ERASE})
+        self.tools.append({"image": pg.image.load("textures/Single_Lane_Two_Way_Road.png"), "rect": None, "action": ACT.ROAD})
 
     def set_active_range(self):
         self.active_range.y = self.safe_rect.height // CELL_SIZE
@@ -94,7 +104,8 @@ class GraphicsEngine:
         self.safe_rect.height -= self.safe_rect.height % CELL_SIZE
         self.set_active_range()
         self.adjust_cell_positions()
-        self.basic_font = pg.font.Font(SIM_FONT, int(min(width, height) * SAFE_ZONE * FPS_DISPLAY_RATIO))
+        self.fonts["FPS"] = pg.font.Font(SIM_FONT, int(min(width, height) * SAFE_ZONE * FPS_DISPLAY_RATIO))
+        self.fonts["Toolbar"] = pg.font.Font(SIM_FONT, int(width * SAFE_ZONE * TOOLBAR_DISPLAY_RATIO))
 
     def adjust_cell_positions(self):
         if len(self.cell_matrix) < 1:
@@ -112,10 +123,22 @@ class GraphicsEngine:
         self.display.fill(BG_COLOR)
         self.clear_screen()
         self.draw_fps()
+        self.draw_toolbar()
         self.draw_cells()
 
     def draw_fps(self):
-        self.display.blit(*self.make_text(str(round(self.fps_clock.get_fps(), 1)), 0, 0, FPS_COLOR))
+        self.display.blit(*self.make_text("FPS", str(round(self.fps_clock.get_fps(), 1)), 0, 0, FPS_COLOR))
+
+    def draw_toolbar(self):
+        font_surf, font_rect = self.make_text("Toolbar", "Toolbar", 0, self.safe_rect.top, FPS_COLOR)
+        self.display.blit(font_surf, font_rect)
+        
+        top = font_rect.bottom + TOOLBAR_OFFSET
+        for tool in self.tools:
+            rect = pg.Rect(TOOLBAR_MARGIN, top, *tool["image"].get_size())
+            self.display.blit(tool["image"], rect)
+            tool["rect"] = rect
+            top += rect.height + TOOLBAR_OFFSET
 
     def draw_cells(self):
         for i in range(self.active_range.y):
@@ -139,23 +162,20 @@ class GraphicsEngine:
                 self.prepare_display()
 
             elif event.type == MOUSEBUTTONUP:
-                if not self.safe_rect.collidepoint(event.pos):
-                    continue
+                if self.safe_rect.collidepoint(event.pos):
+                    if self.active_tool is None:
+                        continue
 
-                clicked_cell = self.cell_matrix[(event.pos[1] - self.safe_rect.top) // CELL_SIZE][(event.pos[0] - self.safe_rect.left) // CELL_SIZE]
-                clicked_cell.set_sprite(Road(Coordinate(*clicked_cell.rect.topleft)), kill=True)
+                    clicked_cell = self.cell_matrix[(event.pos[1] - self.safe_rect.top) // CELL_SIZE][(event.pos[0] - self.safe_rect.left) // CELL_SIZE]
 
-                #found_collision = False
-                #for i in range(self.active_range.y):
-                #    for j in range(self.active_range.x):
-                #        if self.cell_matrix[i][j].rect.collidepoint(event.pos):
-                #            self.cell_matrix[i][j].set_sprite(Road(Coordinate(*self.cell_matrix[i][j].rect.topleft)), kill=True)
-                #            found_collision = True
-                            
-                #            break
-
-                #    if found_collision:
-                #        break
+                    if self.active_tool is ACT.ERASE:
+                        clicked_cell.set_sprite(None, kill=True)
+                    else:
+                        clicked_cell.set_sprite(self.active_tool(Coordinate(*clicked_cell.rect.topleft)), kill=True)
+                else:
+                    for tool in self.tools:
+                        if tool["rect"].collidepoint(event.pos):
+                            self.active_tool = tool["action"]
 
     def update_sprites(self):
         self.sprites["Vehicles"].update()
@@ -168,8 +188,8 @@ class GraphicsEngine:
     def clear_screen(self):
         pg.draw.rect(self.display, SIM_COLOR, self.safe_rect)
 
-    def make_text(self, text, top, left, color, bg_color=None):
-        text_surf = self.basic_font.render(text, True, color, bg_color)
+    def make_text(self, font, text, top, left, color, bg_color=None):
+        text_surf = self.fonts[font].render(text, True, color, bg_color)
         text_rect = text_surf.get_rect()
         text_rect.topleft = (top, left)
 
